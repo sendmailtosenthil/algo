@@ -1,0 +1,27 @@
+{
+  "name": "algo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sendmailtosenthil/algo/issues"
+  },
+  "homepage": "https://github.com/sendmailtosenthil/algo#readme",
+  "dependencies": {
+    "db": "file:../db",
+    "dotenv": "^16.0.3",
+    "moment": "2.29.4",
+    "node-cron": "^3.0.2",
+    "notify": "file:../notify",
+    "request": "^2.88.2",
+    "ws": "^8.11.0"
+  }
+}
