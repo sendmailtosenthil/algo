@@ -4,8 +4,7 @@ const {Broker} = require('../flattrade/api')
 
 class PlaceOrder {
 
-    constructor(emitter, ticker, options, userInfo){
-        this.emitter = emitter
+    constructor(ticker, options, userInfo){
         this.ticker = ticker
         this.options = options
         this.userInfo = userInfo
@@ -23,20 +22,18 @@ class PlaceOrder {
         
         const api = new Broker(self.userInfo.userId, self.userInfo.authToken)
         let orderInfo = await api.placeOrder({
-            exch: 'NFO',
+            exch: opt.exchange,
             symbol: symb,
-            qty:50,
+            qty:opt.qty,
             price: 0,
-            type: opt.trans,
-            otype: 'MKT',
+            type: opt.trantype,
+            otype: opt.otype,
             id: opt.tid
         })
 
         transactionsDB.save({
-            oid : orderInfo.norenordno,
-            uid : self.userInfo.userId,
-            sid : opt.sid,
             tid : opt.tid,
+            oid : orderInfo.norenordno,
             strike : symb
         })
     }

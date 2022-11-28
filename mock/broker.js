@@ -32,7 +32,7 @@ app.post('/PiConnectTP/SearchScrip', (req, res) => {
         stat: "Ok",
         values:[{
         "exch": body.exch,
-        "token": body.stext.includes("P") ? '48287' : '48289',
+        "token": body.stext.includes("P") ? '50030' : '48289',
         "tsym": body.stext
     }]}
     //ws.send(JSON.stringify(data))

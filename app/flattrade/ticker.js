@@ -2,8 +2,8 @@ const WebSocket = require ('ws');
 
 let connectionTimeout=1000;
 
-let Ticker = function(emitter, exch, token) {
-  let ticker = Object.create({...Actions, emitter, exch, token});
+let Ticker = function(emitter) {
+  let ticker = Object.create({...Actions, emitter});
   return ticker.init();
 }
 
@@ -15,7 +15,9 @@ let Actions = {
     return this
   },
 
-  subscribeScript(exch, token){
+  subscribeScript(exch, token, listen){
+    let self = this;
+    self.emitter.on(token, listen)
     console.log(`Subscribing to ${exch} ${token}`)
     this.ws.send(JSON.stringify({
       "t":"t",
@@ -24,7 +26,9 @@ let Actions = {
     return this;
   },
 
-  unsubscribeScript(exch, token){
+  unsubscribeScript(exch, token, listen){
+    let self = this;
+    self.emitter.removeListener(token, listen)
     console.log("Unregister ", token)
     this.ws.send(JSON.stringify({
         "t":"u",
@@ -54,7 +58,7 @@ let Actions = {
           self.emitter.emit(`order`, data)
           break;
         case 'ck':
-          self.subscribeScript(self.exch, self.token)
+          //self.subscribeScript(self.exch, self.token)
           self.registerOrderUpdate()
           break;
         default:
@@ -88,12 +92,12 @@ let Actions = {
       }, connectionTimeout, self)
     });
 
-    self.ws.on('message', function incoming(data) {
-      //console.log(data)
+    self.ws.on('message', function (data) {
+        //console.log(data)
         publishData(JSON.parse(data))
     });
 
-    self.ws.on('error', function incoming(data) {
+    self.ws.on('error', function (data) {
       console.log('Error.....')
       console.log(data)
     });

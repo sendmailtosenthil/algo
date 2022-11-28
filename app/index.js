@@ -11,7 +11,7 @@ async function getAllTrades(){
         const userTokenMap = token.getUserTokens(userStrategies);   
         userStrategies.map(async userStrategy => {
             if(userTokenMap.get(userStrategy.uid)){
-                const child = fork("child/execute-930-strategy.js",[userStrategy.uid, userTokenMap.get(userStrategy.uid), userStrategy.sid, userStrategy.tradeDay]);
+                const child = fork("930/execute-930-strategy.js",[userStrategy.uid, userTokenMap.get(userStrategy.uid), userStrategy.sid, userStrategy.tradeDay]);
                 console.log(`Child Process ${child.pid}`)
                 return child
             } else {

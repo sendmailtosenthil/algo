@@ -54,11 +54,11 @@ function execute(){
       oi: '5186100',
       poi: '5186100'
     })
-    respMap.set('t-NFO|61370',{
+    respMap.set('t-NFO|50030',{
       t: 'tk',
       e: 'NFO',
-      tk: '48289',
-      ts: 'NIFTY10NOV22P18100',
+      tk: '50030',
+      ts: 'NIFTY01DEC22P18100',
       pp: '2',
       ls: '50',
       ti: '0.05',
@@ -150,6 +150,8 @@ function execute(){
 
   let priceMap = new Map()
   respMap.forEach((v,k) => priceMap.set(k,v.lp))
+
+  let scriptRemarkMap = new Map()
   // Creating connection using websocket
   wss.on("connection", ws => {
       console.log("new client connected");
@@ -162,16 +164,18 @@ function execute(){
                   ws.send(JSON.stringify(respMap.get('c')));
                   break;
               case 't':
+                  console.log(jData)
                   let res = respMap.get(`t-${jData.k}`)
                   ws.send(JSON.stringify(res))
                   priceMap.set(jData.k, res.lp)
                   keepSending(ws, jData.k)
                   break;
               case 'o':
-                  console.log('Order received')   
+                  console.log(`Order received`)   
                   break;
               case 'c1':
                   let price = priceMap.get(`t-${jData.tsym.includes('C')?'NFO|61369' : 'NFO|61370'}`)
+                  scriptRemarkMap.set(jData.tsym, jData.remarks)
                   connections.forEach(conn => sendOrder(conn, jData, price)) 
                   break;
               default:
@@ -202,6 +206,7 @@ function execute(){
               o.prc = price
               o.trantype = jData.trantype
               o.flprc = price
+              o.remarks = scriptRemarkMap.get(jData.tsym)
               conn.send(JSON.stringify(o))    
           }, 1000 + i * 500, conn, o, jData, price)
       })

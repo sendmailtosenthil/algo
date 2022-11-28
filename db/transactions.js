@@ -1,12 +1,12 @@
 function retrieve(db){
-    return (tid, oid) => {
+    return (tid) => {
         const row = db.prepare(`SELECT 
             tid, order_id as oid, strike, 
             entry_at as entryTime, entry_price as entryPrice,
             exit_at as exitTime, exit_price as exitPrice,
             sl_price as slPrice, sl_at as slUpdated,
-            remark, pnl, status 
-            FROM transactions WHERE tid = ? and order_id = ?`).get(tid, oid)
+            status 
+            FROM transactions WHERE tid = ?`).get(tid)
         if(typeof row === 'undefined'){
             return null
         }
@@ -21,14 +21,17 @@ function save(db){
                 
         let query;
         if(row == null){
-            query = `INSERT INTO transactions(tid, uid, sid, order_id, strike, status) VALUES (@tid, @uid, @sid, @oid, @strike,'PENDING')`
+            query = `INSERT INTO transactions(tid, order_id, strike, status) VALUES (@tid, @oid, @strike,'PENDING')`
             db.prepare(query).run(orderInfo)
+        } else if (row.oid != orderInfo.oid){
+            const msg = `Mismatch in order id ${row.oid} ${orderInfo.oid}`
+            throw Error(msg)
         }
         
     }
 }
 
-function updatePrice(db){
+function updateEntryPrice(db){
     return (orderInfo) =>{
         save(db)(orderInfo)
         query = `UPDATE transactions
@@ -64,7 +67,7 @@ module.exports = function(db){
     return {
         retrieve: retrieve(db),
         save: save(db),
-        updatePrice: updatePrice(db),
+        updateEntryPrice: updateEntryPrice(db),
         updateSL: updateSL(db),
         updateStatus: updateStatus(db)
     }

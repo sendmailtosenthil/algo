@@ -23,7 +23,7 @@ class StrategyApp {
         this.tradeDay = args[5]
         this.tid = `${this.userId}-${this.strategyId}-${this.tradeDay}`
         this.emitter = new EventEmitter()
-        this.ticker = new Ticker(this.emitter, 'NSE', '26000')
+        this.ticker = new Ticker(this.emitter)
         this.slMonitorMap = new Map();
     }
 }
@@ -34,7 +34,9 @@ function registerEvents(app){
         app.strategy = strategyDB.retrieve(app.strategyId)
         mock(app)
         // Will send find-entry once the time reaches
-        new Entry(app.emitter, app.strategy.entryTime)
+        new Entry(app.strategy.entryTime, () => {
+            app.emitter.emit('find-expiry')    
+        })
     })
 
     app.emitter.on('get-open-trades',async () => {
@@ -42,50 +44,90 @@ function registerEvents(app){
     })
 
     app.emitter.on('find-expiry', async () => {
-        // Will send enter-trade once it finds expiry
-        new FindExpiry(app.emitter, app.strategy.expiry)  
+        console.log('Fining the expiry for ', app.strategy.name)
+        // Will send enter-trade once it finds expiry date
+        new FindExpiry(app.strategy.expiry, (expiryVal) => {
+            console.log('Expiry Val '+expiryVal)
+            app.emitter.emit('enter-trade', expiryVal)
+        })  
     })
 
     app.emitter.on('enter-trade', async (expiry) => {
         app.strategy.expiry = expiry
         console.log('Enter trade.....')
         // Will send find-nifty-atm event once it finds ATM
-        new ATMStrikeFinder(app.emitter, app.ticker, {round:50})
+        new ATMStrikeFinder(app.emitter, app.ticker, {round:50}, (atmStrike)=>{
+            app.emitter.emit('nifty-atm', atmStrike);
+        })
     })
 
+    // Find the symbol before order place TODO: 
     app.emitter.on('nifty-atm', async (atmStrike)=>{
         console.log('ATM :',atmStrike)
         let userInfo = {userId: app.userId, authToken: app.token}
         // Will place an order and persist record into DB
-        let peOrderInfo = {type: 'p', trans:'S', expiry:app.strategy.expiry, strike:atmStrike, tid:app.tid, sid: app.strategyId}
-        new PlaceOrder(app.emitter, app.ticker, peOrderInfo, userInfo)
+        const orderInfo = {
+            exchange:'NFO',
+            otype:'MKT',
+            expiry:app.strategy.expiry, 
+            strike:atmStrike, 
+            qty: 50,
+            trantype:'S'
+        }
+        const peOrderInfo = {...orderInfo, type: 'p', tid:`${app.tid}-`}
+        new PlaceOrder(app.ticker, peOrderInfo, userInfo)
         
         // Will place an order and persist record into DB
-        let ceOrderInfo = {type: 'c', trans:'S', expiry:app.strategy.expiry, strike:atmStrike, tid:app.tid, sid: app.strategyId}
-        new PlaceOrder(app.emitter, app.ticker, ceOrderInfo, userInfo)
+        //const ceOrderInfo = {type: 'c', ...orderInfo, tid:`${app.tid}-c`}
+        //new PlaceOrder(app.ticker, ceOrderInfo, userInfo)
     })
 
     // Will be sent by ticker object as there is order placed by above steps
-    app.emitter.on('order', (data) =>{
-        console.log('Order received', data)
-        new OrderUpdate(app.emitter, {...data, tid:app.tid})
+    app.emitter.on('order', (order) =>{
+        console.log('Order received', order)
+        new OrderUpdate({
+            symbol:order.tsym, 
+            oid:order.norenordno, 
+            trantype:order.trantype, 
+            tid:order.remarks,
+            qty:order.flqty,
+            price:order.flprc,
+            status:order.status
+        }, (o) => {
+            if(o.status === 'ACTION_PENDING'){
+                app.emitter.emit(`sl-update`,o)
+            }
+        })
     })
 
     app.emitter.on('open-order', (data) =>{
         console.log('Order received', data)
-        new OrderUpdate(app.emitter, {...data, tid:app.tid})
+        new OrderUpdate({...data, tid:app.tid})
     })
 
-    app.emitter.on('sl-update', (data) =>{
-        console.log('Working on sl-update ', {...data, expiry: app.strategy.expiry})
-        let updateSL = new UpdateSL(app.emitter, app.ticker, {...data, expiry: app.strategy.expiry, uid: app.userId}, JSON.parse(app.strategy.sl))
-        app.slMonitorMap.put(data.symbol, updateSL)
+    app.emitter.on('sl-update', (o) =>{
+        console.log('Working on sl-update ', {...o, expiry: app.strategy.expiry})
+        let updateSL = new UpdateSL(app.ticker, 
+            {tradePrice:o.price, oid:o.oid, tid: o.tid, symbol: o.symbol, expiry: app.strategy.expiry}, 
+            JSON.parse(app.strategy.sl), (ord) => {
+            app.emitter.emit(`sl-hit`,ord)
+        })
+        app.slMonitorMap.set(o.symbol, updateSL)
     })
 
-    app.emitter.on('sl-hit', (data) =>{
-        console.log('SL hit', data)
-        let orderInfo = {type: 'c', trans:'B', expiry:app.strategy.expiry, strike:atmStrike, tid:app.tid, sid: app.strategyId, symbol:data.symbol}
-        new PlaceOrder(app.emitter, app.ticker, orderInfo, userInfo)
+    app.emitter.on('sl-hit', (o) =>{
+        console.log('SL hit', o)
+        const orderInfo = {
+            exchange:'NFO',
+            otype:'MKT',
+            expiry:app.strategy.expiry, 
+            strike:o.symbol, 
+            qty: 50,
+            trantype:'B',
+            type:'p'
+        }
+        let userInfo = {userId: app.userId, authToken: app.token}
+        new PlaceOrder(app.ticker, orderInfo, userInfo)
         app.slMonitorMap.delete(data.symbol)
         if(app.slMonitorMap.size == 0){
             app.emitter.emit('stop-exit')

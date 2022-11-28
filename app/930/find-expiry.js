@@ -9,22 +9,22 @@ const populateExpiry = () => {
 
 class FindExpiry {
 
-    constructor(emitter, expiry){
-        this.emitter = emitter
-        this.expiry = expiry
+    constructor(expiry, cb){
         this.expiryMap = populateExpiry()
+        this.getExpiry(expiry, cb)
     }
 
-    getExpiry(){
+    getExpiry(expiry, cb){
         let expiryVal = ""
-        switch(this.expiry){
+        switch(expiry){
             case 'CURRENT_WEEK':
-                expiryVal = this.expiryMap.get(this.expiry);
+                console.log('In current week')
+                expiryVal = this.expiryMap.get(expiry);
                 break;
             default:
                 expiryVal = ""
         }
-        this.emitter.emit('enter-trade', expiryVal)
+        cb(expiryVal)
     }
 }
 module.exports.FindExpiry = FindExpiry 
